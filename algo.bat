@@ -1,0 +1,1 @@
+python algo.py --noheaders --noprint --symbol DMP
