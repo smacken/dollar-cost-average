@@ -7,8 +7,10 @@ class DollarCost(bt.Strategy):
     '''
     Dollar cost average over time strategy
     '''
-    params = dict(
-        amount=1000
+    params = (
+        ('amount', 1000),
+        ('atrperiod', 14),  # ATR Period (standard)
+        ('atrdist', 3.0),   # % ATR distance for stop price
     )
 
     def __init__(self):
@@ -16,9 +18,13 @@ class DollarCost(bt.Strategy):
         self.ma50 = bt.indicators.SMA(self.data, period=50)
         self.ma200 = bt.indicators.SMA(self.data, period=200)
         self.crup = bt.indicators.CrossUp(self.data, self.ma50, self.ma200)
+        self.crdown = bt.indicators.CrossDown(self.data, self.ma50, self.ma200)
+        self.atr = bt.indicators.ATR(self.data, period=self.p.atrperiod)
+        self.pstop = 0
         self.order = None
         self.month = None
         self.remainder = 0
+        self.bearish = False
 
     def is_first_of_month(self):
         todayDate = self.data.datetime.date()
@@ -40,12 +46,41 @@ class DollarCost(bt.Strategy):
             num_buy = int(round(((self.p.amount + self.remainder) / self.data.open[0])))
             print(self.data.open[0], num_buy)
             print('buy', self.data.datetime.date(), (self.p.amount - (num_buy * self.data.open[0])))
-            #print(self.ma50, self.ma50(-3))
+            
             if self.ma50 >= self.ma200:
+                self.bearish = False
                 self.remainder = (self.p.amount - (num_buy * self.data.open[0]))
                 print('remainder', self.remainder)
-                self.o = self.buy(size=num_buy)
+                self.order = self.buy(size=num_buy)
+            else:
+                # engage stop loss
+                self.bearish = True
+                pdist = self.atr[0] * self.p.atrdist
+                self.pstop = self.data.close[0] - pdist
 
         self.month = self.data.datetime.date().month
         if self.remainder < 0:
             self.remainder = 0
+
+        # stop loss
+        if self.position and self.bearish:
+            pclose = self.data.close[0]
+            pstop = self.pstop
+
+            if pclose < pstop:
+                self.close()  # stop met - get out
+            else:
+                pdist = self.atr[0] * self.p.atrdist
+                self.pstop = max(pstop, pclose - pdist)
+
+    def log(self, txt, dt=None):
+        ''' Logging function fot this strategy'''
+        dt = dt or self.datas[0].datetime.date(0)
+        print('%s, %s' % (dt.isoformat(), txt))
+
+    def notify_trade(self, trade):
+        if not trade.isclosed:
+            return
+
+        self.log('OPERATION PROFIT, GROSS %.2f, NET %.2f' %
+                 (trade.pnl, trade.pnlcomm))

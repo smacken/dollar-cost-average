@@ -112,29 +112,37 @@ def getData(args):
     data = btfeeds.PandasData(dataname=dataframe)
     return data
 
+class FixedCommisionScheme(bt.CommInfoBase):
+    '''
+    This is a simple fixed commission scheme
+    i.e. $10 per trade
+    '''
+    params = (
+        ('commission', 10),
+        ('stocklike', True),
+        ('commtype', bt.CommInfoBase.COMM_FIXED),
+        )
+
+    def _getcommission(self, size, price, pseudoexec):
+        return self.p.commission
+
 def executeStrategy():
     """ execute trading strategies """
     args = parse_args()
-    startcash = 100000
+    startcash = 10000
     cerebro = bt.Cerebro()
-    cerebro.broker.setcommission(commission=0.001)
+    cerebro.broker.addcommissioninfo(FixedCommisionScheme())
     
     data = getData(args)
     cerebro.adddata(data)
     cerebro.broker.set_cash(startcash)
-    
-    #cerebro.addobserver(bt.analyzers.TradeAnalyzer)
+
     cerebro.addanalyzer(bt.analyzers.SQN)
     cerebro.addobserver(bt.observers.DrawDown)
     cerebro.addobserver(bt.observers.Trades)
     cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='sharpe')
 
-    # strategy selection
-    #cerebro.addstrategy(SMAC)
-    # macdIdx = cerebro.addstrategy(MACD, atrdist=args.atrdist)
-    # cerebro.addsizer_byidx(macdIdx, bt.sizers.PercentSizer, percents=10)
-    
-    cerebro.addstrategy(DollarCost, amount=args.amount)
+    cerebro.addstrategy(DollarCost, amount=args.amount, atrdist=args.atrdist)
     cerebro.addsizer(bt.sizers.PercentSizer, percents=10)
 
     results = cerebro.run()
@@ -146,15 +154,7 @@ def executeStrategy():
     pnl = portvalue - startcash
     print('Final Portfolio Value: ${}'.format(portvalue))
     print('P/L: ${}'.format(pnl))
-    cerebro.plot(style='candlestick') # style='candlestick'
-
-    # pf.create_full_tear_sheet(
-    #     returns,
-    #     positions=positions,
-    #     transactions=transactions,
-    #     # gross_lev=gross_lev,
-    #     live_start_date='2013-01-01',
-    #     round_trips=True)
+    cerebro.plot() # style='candlestick'
 
 if __name__ == '__main__':
     executeStrategy()
