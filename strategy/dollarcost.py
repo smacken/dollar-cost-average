@@ -25,6 +25,7 @@ class DollarCost(bt.Strategy):
         self.month = None
         self.remainder = 0
         self.bearish = False
+        self.invested = 0
 
     def is_first_of_month(self):
         todayDate = self.data.datetime.date()
@@ -40,11 +41,11 @@ class DollarCost(bt.Strategy):
         # buy stock if it's the first of the month
         if self.is_first_of_month():
             bank = self.broker.get_cash()
-            print('current accnt: ', bank)
             self.broker.add_cash(self.p.amount)
+            self.invested += self.p.amount
             
             num_buy = int(round(((self.p.amount + self.remainder) / self.data.open[0])))
-            print(self.data.open[0], num_buy)
+            #print(self.data.open[0], num_buy)
             print('buy', self.data.datetime.date(), (self.p.amount - (num_buy * self.data.open[0])))
             
             if self.ma50 >= self.ma200:
@@ -68,10 +69,16 @@ class DollarCost(bt.Strategy):
             pstop = self.pstop
 
             if pclose < pstop:
-                self.close()  # stop met - get out
+                print('sell position: ', self.position.size)
+                close_position = int(round(self.position.size/3))
+                self.close(size=close_position)
             else:
                 pdist = self.atr[0] * self.p.atrdist
                 self.pstop = max(pstop, pclose - pdist)
+
+    def stop(self):
+        self.close(size=self.position.size)
+        self.log('Invested: ' + str(self.invested))
 
     def log(self, txt, dt=None):
         ''' Logging function fot this strategy'''
