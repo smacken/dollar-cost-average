@@ -1,7 +1,7 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
-import backtrader as bt
 import datetime
+import backtrader as bt
 
 class DollarCost(bt.Strategy):
     '''
@@ -26,6 +26,7 @@ class DollarCost(bt.Strategy):
         self.remainder = 0
         self.bearish = False
         self.invested = 0
+        self.stopped = False
 
     def is_first_of_month(self):
         todayDate = self.data.datetime.date()
@@ -40,6 +41,7 @@ class DollarCost(bt.Strategy):
     def next(self):
         # buy stock if it's the first of the month
         if self.is_first_of_month():
+            self.stopped = False
             bank = self.broker.get_cash()
             self.broker.add_cash(self.p.amount)
             self.invested += self.p.amount
@@ -48,7 +50,7 @@ class DollarCost(bt.Strategy):
             #print(self.data.open[0], num_buy)
             print('buy', self.data.datetime.date(), (self.p.amount - (num_buy * self.data.open[0])))
             
-            if self.ma50 >= self.ma200:
+            if self.ma50 >= self.ma200 and self.data.high[0] > self.ma50:
                 self.bearish = False
                 self.remainder = (self.p.amount - (num_buy * self.data.open[0]))
                 print('remainder', self.remainder)
@@ -64,14 +66,15 @@ class DollarCost(bt.Strategy):
             self.remainder = 0
 
         # stop loss
-        if self.position and self.bearish:
+        if self.position and self.bearish and not self.stopped:
             pclose = self.data.close[0]
             pstop = self.pstop
 
             if pclose < pstop:
                 print('sell position: ', self.position.size)
-                close_position = int(round(self.position.size/3))
+                close_position = int(round(self.position.size/2))
                 self.close(size=close_position)
+                self.stopped = True
             else:
                 pdist = self.atr[0] * self.p.atrdist
                 self.pstop = max(pstop, pclose - pdist)
