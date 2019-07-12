@@ -6,22 +6,18 @@ import backtrader.indicators as btind
 import backtrader.feeds as btfeeds
 import datetime
 import os
+import json
 import sys
 import pandas as pd
 from pandas import Series, DataFrame
 import random
 from copy import deepcopy
-
-# import pyfolio as pf
 import warnings
 warnings.filterwarnings('ignore')
-
-from strategy import StrategyFetcher
-from strategy.rsi import RSI
-from strategy.macd import MACD
-from strategy.ma import MA
-from strategy.bollinger import Bollinger
-from strategy.bollingerCounter import BollingerCounter
+from commision import FixedCommisionScheme
+from strategy.strategyFetcher import StrategyFetcher
+from strategy.buy_hold import BuyAndHoldInitial, BuyAndHoldDollarCost
+from strategy.dollarcost import DollarCost
 
 def parse_args():
     """ main args """
@@ -64,52 +60,39 @@ def parse_args():
 
     return parser.parse_args()
 
-def getStockList():
+def get_data(args):
+    ''' get the price data for a given symbol '''
     modpath = os.path.dirname(os.path.abspath(sys.argv[0]))
-    symbolDates = os.listdir('data\\2013-2016')
-    for i, symbolDate in enumerate(symbolDates):
-        # if i > 10:
-        #      break
-        datapath = os.path.join(modpath, 'data\\2013-2016', symbolDate)
-        print(datapath)
+    symbol_dates = os.listdir('data\\2013-2016')
+    symbol_buffer = modpath + "\\data\\" + args.symbol + ".pkl"
 
-def getData(args):
-    ''' get the symbol data '''
-    modpath = os.path.dirname(os.path.abspath(sys.argv[0]))
-    symbolDates = os.listdir('data\\2013-2016')
-    symbolBuffer = modpath + "\\data\\" + args.symbol + ".csv"
+    # load the dataframe from preload or parse out
     dataframe = pd.DataFrame()
-    if os.path.exists(symbolBuffer):
+    if os.path.exists(symbol_buffer):
         skiprows = 1 if args.noheaders else 0
         header = 0
-        df = pd.read_csv(symbolBuffer,
-                        skiprows=skiprows,
-                        header=header,
-                        parse_dates=True,
-                        index_col=0,
-                        names=['date', 'symbol', 'open', 'high', 'low', 'close', 'volume'])
-        dataframe = df
-    else:    
-        for i, symbolDate in enumerate(symbolDates):
-            datapath = os.path.join(modpath, 'data\\2013-2016', symbolDate)
+        frame = pd.read_pickle(symbol_buffer)
+        dataframe = frame
+    else:
+        for i, symbol_date in enumerate(symbol_dates):
+            datapath = os.path.join(modpath, 'data\\2013-2016', symbol_date)
             skiprows = 1 if args.noheaders else 0
             header = None if args.noheaders else 0
-            df = pd.read_csv(datapath,
+            frame = pd.read_csv(datapath,
                             skiprows=skiprows,
                             header=header,
                             parse_dates=True,
                             index_col=1,
                             names=['symbol', 'date', 'open', 'high', 'low', 'close', 'volume'])
-            df = df[df['symbol'] == args.symbol]
-            if dataframe.empty: 
-                dataframe = df
+            frame = frame[frame['symbol'] == args.symbol]
+            if dataframe.empty:
+                dataframe = frame
             else:
-                dataframe = pd.concat([dataframe,df])
+                dataframe = pd.concat([dataframe, frame])
 
-    if not os.path.exists(symbolBuffer):
-        dataframe.to_csv(modpath + "\\data\\" + args.symbol + ".csv",
-                         columns=[ 'symbol', 'open', 'high', 'low', 'close', 'volume'],
-                         header = False if args.noheaders else True)
+    # save out the dataframe for fast rerun
+    if not os.path.exists(symbol_buffer):
+        dataframe.to_pickle(modpath + "\\data\\" + args.symbol + ".pkl")
     dataframe = dataframe.drop('symbol', axis=1)
     if not args.noprint:
         print('--------------------------------------------------')
@@ -118,41 +101,29 @@ def getData(args):
     data = btfeeds.PandasData(dataname=dataframe)
     return data
 
-def executeStrategy():
+def execute_strategy():
     """ execute trading strategies """
     args = parse_args()
-    startcash = 100000
+    startcash = 10000
     cerebro = bt.Cerebro()
-    cerebro.broker.setcommission(commission=0.001)
-    # cerebro.addstrategy(MACD, atrdist=args.atrdist)
-    cerebro.addstrategy(Bollinger, atrdist=args.atrdist)
-
-    data = getData(args)
+    
+    data = get_data(args)
     cerebro.adddata(data)
     cerebro.broker.set_cash(startcash)
+    cerebro.broker.addcommissioninfo(FixedCommisionScheme())
 
-    # cerebro.addanalyzer(bt.analyzers.PyFolio, _name='pyfolio')
     cerebro.addanalyzer(bt.analyzers.SQN)
     cerebro.addobserver(bt.observers.DrawDown) 
-
-    # results = cerebro.run()
-    # st0 = results[0]
-    # for alyzer in st0.analyzers:
-    #     alyzer.print()
-    # strat = results[0]
-    # pyfoliozer = strat.analyzers.getbyname('pyfolio')
-    # pyfoliozer.adddata(data)
-    # returns, positions, transactions, gross_lev = pyfoliozer.get_pf_items()
-
     cerebro.addanalyzer(bt.analyzers.Returns)
+
     cerebro.optstrategy(StrategyFetcher, idx=StrategyFetcher.StrategyCount())
     results = cerebro.run(maxcpus=args.maxcpus, optreturn=args.optreturn)
 
-    strats = [x[0] for x in results]  # flatten the result
+    strats = [x[0] for x in results]
     for i, strat in enumerate(strats):
         rets = strat.analyzers.returns.get_analysis()
         print('Strat {} Name {}:\n  - analyzer: {}\n'.format(
-            i, strat.__class__.__name__, rets))
+            i, strat.strategycls, json.dumps(rets, indent=4)))
 
     # portvalue = cerebro.broker.getvalue()
     # pnl = portvalue - startcash
@@ -160,15 +131,5 @@ def executeStrategy():
     # print('P/L: ${}'.format(pnl))
     # cerebro.plot() # style='candlestick'
 
-    # pf.create_full_tear_sheet(
-    #     returns,
-    #     positions=positions,
-    #     transactions=transactions,
-    #     # gross_lev=gross_lev,
-    #     live_start_date='2013-01-01',
-    #     round_trips=True)
-
 if __name__ == '__main__':
-    # args = parse_args()
-    # getData(args)
-    executeStrategy()
+    execute_strategy()

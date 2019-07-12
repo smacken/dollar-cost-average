@@ -1,7 +1,8 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
-#from strategy.ma import MA
 from strategy.dollarcost import DollarCost
+from strategy.dollarcost_price import DollarCostPrice
+from strategy.buyhold import BuyAndHoldInitial, BuyAndHoldDollarCost
 from commision import FixedCommisionScheme
 import os
 import sys
@@ -28,6 +29,8 @@ def parse_args():
 
     parser.add_argument('--noprint', action='store_true', default=True,
                         help='Print the dataframe')
+    parser.add_argument('--noplot', action='store_true', default=True, required=False,
+                        help='Plot the results')
 
     parser.add_argument('--symbol', default=None,
                         required=False,
@@ -101,7 +104,7 @@ def execute_strategy():
     startcash = 10000
     cerebro = bt.Cerebro()
     cerebro.broker.addcommissioninfo(FixedCommisionScheme())
-    
+
     data = get_data(args)
     cerebro.adddata(data)
     cerebro.broker.set_cash(startcash)
@@ -114,6 +117,7 @@ def execute_strategy():
     cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='sharpe')
 
     cerebro.addstrategy(DollarCost, amount=args.amount, atrdist=args.atrdist)
+    #cerebro.addstrategy(BuyAndHoldInitial)
     cerebro.addsizer(bt.sizers.PercentSizer, percents=10)
 
     results = cerebro.run()
@@ -125,7 +129,8 @@ def execute_strategy():
     pnl = portvalue - startcash
     print('Final Portfolio Value: ${}'.format(portvalue))
     print('P/L: ${}'.format(pnl))
-    cerebro.plot() # style='candlestick'
+    if not args.noplot:
+        cerebro.plot() # style='candlestick'
 
 if __name__ == '__main__':
     execute_strategy()
