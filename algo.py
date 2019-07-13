@@ -1,8 +1,10 @@
+''' 'algorithmic trading module '''
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 from strategy.dollarcost import DollarCost
 from strategy.dollarcost_price import DollarCostPrice
-from strategy.buyhold import BuyAndHoldInitial, BuyAndHoldDollarCost
+from strategy.buyhold import BuyAndHoldInitial
+from strategy.buyholddollar import BuyAndHoldDollarCost
 from commision import FixedCommisionScheme
 import os
 import sys
@@ -12,7 +14,6 @@ from pandas import Series, DataFrame
 import backtrader as bt
 import backtrader.indicators as btind
 import backtrader.feeds as btfeeds
-#import datetime
 import random
 from copy import deepcopy
 import warnings
@@ -29,6 +30,7 @@ def parse_args():
 
     parser.add_argument('--noprint', action='store_true', default=True,
                         help='Print the dataframe')
+
     parser.add_argument('--noplot', action='store_true', default=True, required=False,
                         help='Plot the results')
 
@@ -111,13 +113,15 @@ def execute_strategy():
 
     cerebro.addanalyzer(bt.analyzers.SQN)
     cerebro.addanalyzer(bt.analyzers.AnnualReturn)
-    cerebro.addanalyzer(bt.analyzers.PeriodStats)
+    #cerebro.addanalyzer(bt.analyzers.PeriodStats)
+    ankwargs = dict(timeframe=bt.TimeFrame.Years)
+    cerebro.addanalyzer(bt.analyzers.TimeReturn, **ankwargs)
     cerebro.addobserver(bt.observers.DrawDown)
     cerebro.addobserver(bt.observers.Trades)
     cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='sharpe')
 
     cerebro.addstrategy(DollarCost, amount=args.amount, atrdist=args.atrdist)
-    #cerebro.addstrategy(BuyAndHoldInitial)
+    #cerebro.addstrategy(BuyAndHoldDollarCost)
     cerebro.addsizer(bt.sizers.PercentSizer, percents=10)
 
     results = cerebro.run()
@@ -129,8 +133,8 @@ def execute_strategy():
     pnl = portvalue - startcash
     print('Final Portfolio Value: ${}'.format(portvalue))
     print('P/L: ${}'.format(pnl))
-    if not args.noplot:
-        cerebro.plot() # style='candlestick'
+    
+    cerebro.plot() # style='candlestick'
 
 if __name__ == '__main__':
     execute_strategy()

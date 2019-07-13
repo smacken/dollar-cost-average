@@ -13,6 +13,7 @@ class DollarCost(bt.Strategy):
         ('amount', 1000),
         ('atrperiod', 14),  # ATR Period (standard)
         ('atrdist', 3.0),   # % ATR distance for stop price
+        ('debug', False),
     )
 
     def __init__(self):
@@ -38,7 +39,7 @@ class DollarCost(bt.Strategy):
 
         # the markets might not be open on the first of the month
         month = self.data.datetime.date().month
-        return self.data.datetime.date() == first or self.month is None or month > self.month
+        return self.data.datetime.date() == first or self.month is None or month == 1 or month > self.month
 
     def next(self):
         # buy stock if it's the first of the month
@@ -49,13 +50,14 @@ class DollarCost(bt.Strategy):
             self.invested += self.p.amount
             
             num_buy = int(round(((self.p.amount + self.remainder) / self.data.open[0])))
-            #print(self.data.open[0], num_buy)
-            print('buy', self.data.datetime.date(), (self.p.amount - (num_buy * self.data.open[0])))
+            if self.p.debug:
+                print('buy', self.data.datetime.date(), (self.p.amount - (num_buy * self.data.open[0])))
             
             if self.ma50 >= self.ma200 and self.data.high[0] > self.ma50:
                 self.bearish = False
                 self.remainder = (self.p.amount - (num_buy * self.data.open[0]))
-                print('remainder', self.remainder)
+                if self.p.debug:
+                    print('remainder', self.remainder)
                 self.order = self.buy(size=num_buy)
             else:
                 # engage stop loss
@@ -73,7 +75,8 @@ class DollarCost(bt.Strategy):
             pstop = self.pstop
 
             if pclose < pstop:
-                print('sell position: ', self.position.size)
+                if self.p.debug:
+                    print('sell position: ', self.position.size)
                 close_position = int(round(self.position.size/2))
                 self.close(size=close_position)
                 self.stopped = True

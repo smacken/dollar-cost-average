@@ -1,5 +1,10 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
+from commision import FixedCommisionScheme
+from strategy.strategyFetcher import StrategyFetcher
+from strategy.buyhold import BuyAndHoldInitial
+from strategy.buyholddollar import BuyAndHoldDollarCost
+from strategy.dollarcost import DollarCost
 import argparse                        
 import backtrader as bt
 import backtrader.indicators as btind
@@ -14,10 +19,7 @@ import random
 from copy import deepcopy
 import warnings
 warnings.filterwarnings('ignore')
-from commision import FixedCommisionScheme
-from strategy.strategyFetcher import StrategyFetcher
-from strategy.buy_hold import BuyAndHoldInitial, BuyAndHoldDollarCost
-from strategy.dollarcost import DollarCost
+
 
 def parse_args():
     """ main args """

@@ -14,7 +14,7 @@ class MA(bt.Strategy):
 
     def __init__(self):
         ma1, ma2 = self.p.ma(period=self.p.p1), self.p.ma(period=self.p.p2)
-        self.crup = bt.ind.CrossUp(ma1, ma2)
+        self.crup = bt.indicators.CrossUp(ma1, ma2)
         self.order = None
 
     def next(self):
