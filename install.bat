@@ -1,2 +1,1 @@
-pip install backtrader[plotting]
-pip install pandas
+pip install -r requirements.txt
