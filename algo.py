@@ -133,8 +133,10 @@ def execute_strategy():
     pnl = portvalue - startcash
     print('Final Portfolio Value: ${}'.format(portvalue))
     print('P/L: ${}'.format(pnl))
-    
-    cerebro.plot() # style='candlestick'
+
+    plot = cerebro.plot() # style='candlestick'
+    fig = plot[0][0]
+    fig.savefig(f'data/{args.symbol}.png')
 
 if __name__ == '__main__':
     execute_strategy()
