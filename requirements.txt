@@ -1,5 +1,5 @@
 backtrader==1.9.75.123
-certifi==2020.4.5.1
+certifi==2020.4.5.2
 cycler==0.10.0
 kiwisolver==1.2.0
 matplotlib==3.2.1
