@@ -2,7 +2,7 @@ backtrader==1.9.75.123
 certifi==2020.4.5.2
 cycler==0.10.0
 kiwisolver==1.2.0
-matplotlib==3.2.1
+matplotlib==3.2.2
 numpy==1.18.5
 pandas==1.0.4
 pyparsing==2.4.7
