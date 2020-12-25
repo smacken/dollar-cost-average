@@ -7,6 +7,6 @@ numpy==1.19.4
 pandas==1.1.5
 pyparsing==2.4.7
 python-dateutil==2.8.1
-pytz==2020.4
+pytz==2020.5
 six==1.15.0
 wincertstore==0.2
